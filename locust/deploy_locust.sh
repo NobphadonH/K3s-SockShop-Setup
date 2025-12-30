@@ -5,10 +5,10 @@ NODE_PORT=30089
 kubectl get ns "$NAMESPACE" >/dev/null 2>&1 || kubectl create ns "$NAMESPACE"
 kubectl label ns "$NAMESPACE" istio-injection=enabled --overwrite
 
-echo "Waiting for all pods in sock-shop to be ready..."
+# echo "Waiting for all pods in sock-shop to be ready..."
 
-# Wait for pods with the 'app' label to be ready
-kubectl wait --for=condition=Ready pod --all -n sock-shop --timeout=600s
+# # Wait for pods with the 'app' label to be ready
+# kubectl wait --for=condition=Ready pod --all -n sock-shop --timeout=600s
 
 # Create/update ConfigMap from repo file
 kubectl -n "$NAMESPACE" create configmap locustfile-config \
