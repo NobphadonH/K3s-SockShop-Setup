@@ -12,11 +12,11 @@ kubectl label ns "$NAMESPACE" istio-injection=enabled --overwrite
 
 # Create/update ConfigMap from repo file
 kubectl -n "$NAMESPACE" create configmap locustfile-config \
-  --from-file=locustfile.py=./locustfile.py \
+  --from-file=locustfile.py=./locust/locustfile.py \
   --dry-run=client -o yaml | kubectl apply -f -
 
 # Apply Deployment + NodePort Service
-kubectl apply -f ./locust-ui.yaml
+kubectl apply -f ./locust/locust-ui.yaml
 
 kubectl -n "$NAMESPACE" rollout status deploy/locust --timeout=300s
 kubectl -n "$NAMESPACE" get svc locust-ui -o wide
