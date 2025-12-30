@@ -1,3 +1,5 @@
+#!/bin/bash
+
 NAMESPACE="sock-shop"
 
 kubectl get ns "$NAMESPACE" >/dev/null 2>&1 || kubectl create ns "$NAMESPACE"
