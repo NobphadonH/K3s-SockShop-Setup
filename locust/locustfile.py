@@ -52,7 +52,7 @@ class SockShopUser(HttpUser):
             return True
 
         # Try register (ignore if 404/405/etc.)
-        reg_payload = {"username": self.username, "password": self.password, "email": f"{self.username}@test.com"}
+        reg_payload = {"username": self.username, "password": self.password, "email": f"{self.username}@test.com", "firstName":"first", "lastName":"last"}
 
         # correct catch_response usage
         with self.client.post(self.REGISTER_PATH, json=reg_payload, name="auth_register", catch_response=True) as reg:
@@ -61,6 +61,13 @@ class SockShopUser(HttpUser):
             else:
                 # don't crash user; just mark this request as failure
                 reg.failure(f"register failed: {reg.status_code}")
+
+
+        if "md.sid" in self.client.cookies or "logged_in" in self.client.cookies:
+            self.logged_in = True
+            return True
+        
+        #self._clear_auth_cookies()
 
         # Try login
         login_payload = {"username": self.username, "password": self.password}
@@ -97,11 +104,42 @@ class SockShopUser(HttpUser):
         self.client.get("/cart", json={"id": pid, "quantity": 1})
 
     # ---------------- New optional tasks ----------------
+    # @task(W_LOGIN)
+    # def login_or_register(self):
+    #     if not self.ENABLE_AUTH:
+    #         return
+    #     self._ensure_logged_in()
+
+
     @task(W_LOGIN)
-    def login_or_register(self):
+    def logout_then_login(self):
         if not self.ENABLE_AUTH:
             return
-        self._ensure_logged_in()
+
+        if not self.logged_in and "md.sid" not in self.client.cookies and "logged_in" not in self.client.cookies:
+            return
+
+        # Logout by clearing cookies
+
+        # client-side cookie used by the UI
+        self.client.cookies.pop("logged_in", None)
+
+        # server session cookie (from your earlier headers)
+        self.client.cookies.pop("md.sid", None)
+
+        self.logged_in = False
+
+        # Re-establish session cookie
+        self.client.get("/")
+
+        # Login again
+        login_payload = {"username": self.username, "password": self.password}
+        with self.client.post(self.LOGIN_PATH, json=login_payload, catch_response=True, name="auth_login") as resp:
+            if resp.status_code in (200, 204, 302):
+                resp.success()
+                self.logged_in = True
+            else:
+                resp.failure(f"login failed: {resp.status_code}")
 
     @task(W_CHECKOUT)
     def checkout(self):
