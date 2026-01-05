@@ -19,7 +19,8 @@ done
 
 kubectl -n sock-shop set image deploy/orders-db orders-db=mongo:4.4
 
-kubectl -n sock-shop rollout status deploy/carts --timeout=600s
-kubectl -n sock-shop rollout status deploy/carts-db --timeout=600s
-kubectl -n sock-shop rollout status deploy/orders --timeout=600s
-kubectl -n sock-shop rollout status deploy/orders-db --timeout=600s
+echo "Waiting for terminating pods to disappear..."
+while kubectl -n sock-shop get pod -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.metadata.deletionTimestamp}{"\n"}{end}' \
+  | grep -qvE 'null$'; do
+  sleep 2
+done
