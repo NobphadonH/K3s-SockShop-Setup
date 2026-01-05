@@ -18,3 +18,8 @@ until kubectl -n sock-shop get deploy orders-db >/dev/null 2>&1; do
 done
 
 kubectl -n sock-shop set image deploy/orders-db orders-db=mongo:4.4
+
+kubectl -n sock-shop rollout status deploy/carts --timeout=600s
+kubectl -n sock-shop rollout status deploy/carts-db --timeout=600s
+kubectl -n sock-shop rollout status deploy/orders --timeout=600s
+kubectl -n sock-shop rollout status deploy/orders-db --timeout=600s
