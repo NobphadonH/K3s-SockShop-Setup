@@ -20,7 +20,6 @@ done
 kubectl -n sock-shop set image deploy/orders-db orders-db=mongo:4.4
 
 echo "Waiting for terminating pods to disappear..."
-while kubectl -n sock-shop get pod -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.metadata.deletionTimestamp}{"\n"}{end}' \
-  | grep -qvE 'null$'; do
+while kubectl -n sock-shop get pods 2>/dev/null | grep -q Terminating; do
   sleep 2
 done
