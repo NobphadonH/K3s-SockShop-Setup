@@ -13,8 +13,8 @@ class SockShopUser(HttpUser):
     W_CHECKOUT = 1  # keep small but non-zero so payment/shipping/orders are exercised
 
     # ---- Configure these based on your Sock Shop variant (DevTools -> Network) ----
-    ENABLE_AUTH = False
-    ENABLE_CHECKOUT = False
+    ENABLE_AUTH = True
+    ENABLE_CHECKOUT = True
 
     # Common-ish endpoints (MAY differ in your deployment)
     LOGIN_PATH = "/login"         # often POST
