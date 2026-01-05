@@ -53,13 +53,14 @@ class SockShopUser(HttpUser):
 
         # Try register (ignore if 404/405/etc.)
         reg_payload = {"username": self.username, "password": self.password, "email": f"{self.username}@test.com"}
-        reg = self.client.post(self.REGISTER_PATH, json=reg_payload, name="auth_register", catch_response=True)
-        if reg.status_code in (200, 201, 204, 409):  # 409 = already exists
-            reg.success()
-        else:
-            # don't fail the whole test if your variant doesn't support this endpoint
-            reg.failure(f"register not supported or failed: {reg.status_code}")
-            reg = None
+
+        # correct catch_response usage
+        with self.client.post(self.REGISTER_PATH, json=reg_payload, name="auth_register", catch_response=True) as reg:
+            if reg.status_code in (200, 201, 204, 409):
+                reg.success()
+            else:
+                # don't crash user; just mark this request as failure
+                reg.failure(f"register failed: {reg.status_code}")
 
         # Try login
         login_payload = {"username": self.username, "password": self.password}
