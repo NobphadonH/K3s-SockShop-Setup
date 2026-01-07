@@ -2,6 +2,7 @@ from locust import HttpUser, task, between
 import random
 import re
 import uuid
+import base64
 
 class SockShopUser(HttpUser):
     wait_time = between(1, 3)
@@ -9,7 +10,7 @@ class SockShopUser(HttpUser):
     # Tune these weights to control realism:
     W_BROWSE = 6
     W_CART = 3
-    W_LOGIN = 0
+    W_LOGIN = 1
     W_CHECKOUT = 0  # keep small but non-zero so payment/shipping/orders are exercised
 
     # ---- Configure these based on your Sock Shop variant (DevTools -> Network) ----
@@ -70,13 +71,30 @@ class SockShopUser(HttpUser):
         #self._clear_auth_cookies()
 
         # Try login
-        login_payload = {"username": self.username, "password": self.password}
-        resp = self.client.post(self.LOGIN_PATH, json=login_payload, name="auth_login")
+        resp = self.login_basic()
         if resp.status_code in (200, 204):
             self.logged_in = True
             return True
 
         return False
+
+    def _basic_auth_header(self, username: str, password: str) -> dict:
+        token = base64.b64encode(f"{username}:{password}".encode()).decode()
+        return {
+            "Authorization": f"Basic {token}",
+            "X-Requested-With": "XMLHttpRequest",
+            "Accept": "*/*",
+        }
+
+    def login_basic(self) -> bool:
+        headers = self._basic_auth_header(self.username, self.password)
+        with self.client.get("/login", headers=headers, catch_response=True, name="auth_login") as r:
+            if r.status_code in (200, 204, 302):
+                r.success()
+                self.logged_in = True
+                return True
+            r.failure(f"login failed: {r.status_code}")
+            return False
 
     # ---------------- Existing tasks (kept) ----------------
     @task(W_BROWSE)
@@ -125,7 +143,7 @@ class SockShopUser(HttpUser):
         self.client.cookies.pop("logged_in", None)
 
         # server session cookie (from your earlier headers)
-        self.client.cookies.pop("md.sid", None)
+        #self.client.cookies.pop("md.sid", None)
 
         self.logged_in = False
 
@@ -133,13 +151,14 @@ class SockShopUser(HttpUser):
         self.client.get("/")
 
         # Login again
-        login_payload = {"username": self.username, "password": self.password}
-        with self.client.post(self.LOGIN_PATH, json=login_payload, catch_response=True, name="auth_login") as resp:
-            if resp.status_code in (200, 204, 302):
-                resp.success()
-                self.logged_in = True
-            else:
-                resp.failure(f"login failed: {resp.status_code}")
+        resp = self.login_basic()
+        # login_payload = {"username": self.username, "password": self.password}
+        # with self.client.post(self.LOGIN_PATH, json=login_payload, catch_response=True, name="auth_login") as resp:
+        #     if resp.status_code in (200, 204, 302):
+        #         resp.success()
+        #         self.logged_in = True
+        #     else:
+        #         resp.failure(f"login failed: {resp.status_code}")
 
     @task(W_CHECKOUT)
     def checkout(self):
