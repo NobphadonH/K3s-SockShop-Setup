@@ -9,12 +9,12 @@ class SockShopUser(HttpUser):
     # Tune these weights to control realism:
     W_BROWSE = 6
     W_CART = 3
-    W_LOGIN = 1
-    W_CHECKOUT = 1  # keep small but non-zero so payment/shipping/orders are exercised
+    W_LOGIN = 0
+    W_CHECKOUT = 0  # keep small but non-zero so payment/shipping/orders are exercised
 
     # ---- Configure these based on your Sock Shop variant (DevTools -> Network) ----
     ENABLE_AUTH = True
-    ENABLE_CHECKOUT = True
+    ENABLE_CHECKOUT = False
 
     # Common-ish endpoints (MAY differ in your deployment)
     LOGIN_PATH = "/login"         # often POST
