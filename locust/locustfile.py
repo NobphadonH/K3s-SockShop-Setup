@@ -11,11 +11,11 @@ class SockShopUser(HttpUser):
     W_BROWSE = 6
     W_CART = 3
     W_LOGIN = 1
-    W_CHECKOUT = 0  # keep small but non-zero so payment/shipping/orders are exercised
+    W_CHECKOUT = 1  # keep small but non-zero so payment/shipping/orders are exercised
 
     # ---- Configure these based on your Sock Shop variant (DevTools -> Network) ----
     ENABLE_AUTH = True
-    ENABLE_CHECKOUT = False
+    ENABLE_CHECKOUT = True
 
     # Common-ish endpoints (MAY differ in your deployment)
     LOGIN_PATH = "/login"         # often POST
@@ -85,6 +85,14 @@ class SockShopUser(HttpUser):
             "X-Requested-With": "XMLHttpRequest",
             "Accept": "*/*",
         }
+
+    def _xhr_headers(self):
+        return {
+            "Accept": "*/*",
+            "X-Requested-With": "XMLHttpRequest",
+            # Content-Type only needed when you send JSON
+        }
+
 
     def login_basic(self) -> bool:
         headers = self._basic_auth_header(self.username, self.password)
@@ -176,19 +184,56 @@ class SockShopUser(HttpUser):
 
         # Example payload (very likely differs in your deployment)
         # Use DevTools to capture the real request(s).
-        payload = {
-            "address": {
-                "number": "123",
-                "street": "Main St",
-                "city": "Bangkok",
-                "postcode": "10110",
-                "country": "TH"
-            },
-            "card": {
-                "longNum": "4111111111111111",
-                "expires": "12/29",
-                "ccv": "123"
-            }
+
+        address =  {
+            "number": "123",
+            "street": "Main St",
+            "city": "Bangkok",
+            "postcode": "10110",
+            "country": "TH"
+        }
+        with self.client.post(
+            "/addresses",
+            json=address,
+            headers={**self._xhr_headers(), "Content-Type": "application/json"},
+            name="checkout_address",
+            catch_response=True
+        ) as r:
+            if r.status_code in (200, 201, 204):
+                r.success()
+            else:
+                r.failure(f"addresses failed: {r.status_code}")
+                return
+        
+        card = {
+            "longNum": "123456789",
+            "expires": "06/30",
+            "ccv": "123"
         }
 
-        self.client.post(self.CHECKOUT_PATH, json=payload, name="checkout_attempt")
+        with self.client.post(
+            "/cards",
+            json=card,
+            headers={**self._xhr_headers(), "Content-Type": "application/json"},
+            name="checkout_card",
+            catch_response=True
+        ) as r:
+            if r.status_code in (200, 201, 204):
+                r.success()
+            else:
+                r.failure(f"cards failed: {r.status_code}")
+                return
+
+        # 3) orders (no payload)
+        with self.client.post(
+            "/orders",
+            data=b"",   # ensure empty body
+            headers=self._xhr_headers(),
+            name="checkout_orders",
+            catch_response=True
+        ) as r:
+            if r.status_code in (200, 201, 204):
+                r.success()
+            else:
+                r.failure(f"orders failed: {r.status_code}")
+                return
