@@ -23,3 +23,26 @@ kubectl -n "$NAMESPACE" get svc locust-ui -o wide
 
 echo ""
 echo "Locust UI: http://<EC2_PUBLIC_IP>:$NODEPORT"
+
+sleep 120
+
+# Create/update ConfigMap from repo file
+kubectl -n "$NAMESPACE" create configmap locustfile-config \
+  --from-file=locustfile.py=./locust/locustfile.py \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# Apply Deployment + NodePort Service
+kubectl apply -f ./locust/locust-ui.yaml
+
+kubectl -n "$NAMESPACE" rollout status deploy/locust --timeout=300s
+kubectl -n "$NAMESPACE" get svc locust-ui -o wide
+
+echo ""
+echo "Locust UI: http://<EC2_PUBLIC_IP>:$NODEPORT"
+
+sleep 180
+
+kubectl exec -n "$NAMESPACE" deploy/locust -- \
+  curl -X POST http://localhost:8089/swarm \
+  -d "user_count=50" \
+  -d "spawn_rate=5"
