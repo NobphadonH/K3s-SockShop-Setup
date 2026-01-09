@@ -1,0 +1,16 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: carts-cpu-stress
+  namespace: sock-shop
+spec:
+  duration: "60s"              # 2 minutes
+  mode: one
+  selector:
+    labelSelectors:
+      name: "carts"             # matches your Deployment label
+  containerNames: ["carts"]     # target the carts container
+  stressors:
+    cpu:
+      workers: 1                # start with 1 worker
+      load: 90                 # each worker tries to use 100% of a CPU
