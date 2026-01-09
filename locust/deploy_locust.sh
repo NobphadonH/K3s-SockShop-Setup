@@ -42,8 +42,8 @@ echo "Locust UI: http://<EC2_PUBLIC_IP>:$NODEPORT"
 
 sleep 180
 
-kubectl run -n "$NAMESPACE" locust-trigger --rm -i --restart=Never \
-  --image=curlimages/curl:8.5.0 -- \
-  curl -X POST "http://locust-ui.$NAMESPACE.svc.cluster.local:8089/swarm" \
-  -d "user_count=50" \
-  -d "spawn_rate=5"
+# kubectl run -n "$NAMESPACE" locust-trigger --rm -i --restart=Never \
+#   --image=curlimages/curl:8.5.0 -- \
+#   curl -X POST "http://locust-ui.$NAMESPACE.svc.cluster.local:8089/swarm" \
+#   -d "user_count=50" \
+#   -d "spawn_rate=5"
