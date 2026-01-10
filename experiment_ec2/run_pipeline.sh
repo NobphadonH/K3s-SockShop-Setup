@@ -26,7 +26,7 @@ OUT_ROOT="./runs"
 INJ_YAML="./carts-cpu-stress.yaml"
 INJ_NAME="carts-cpu-stress"
 INJ_NS="sock-shop"
-KUBECONFIG_PATH=""                 # optional (recommended)
+KUBECONFIG_PATH="~/k3s.yaml"                 # optional (recommended)
 
 NODES=false                        # optional
 

@@ -14,7 +14,7 @@ YAML_PATH="./carts-cpu-stress.yaml"
 NAME="carts-cpu-stress"
 NAMESPACE="sock-shop"
 OUT_PATH=""
-KCFG=""
+KCFG="~/k3s.yaml"
 
 usage() {
   echo "Usage: $0 -d <duration> -o <out_path> [-y <yaml_path>] [-n <name>] [-s <namespace>] [-k <kubeconfig>]" >&2
