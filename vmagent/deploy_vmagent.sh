@@ -28,4 +28,4 @@ helm upgrade --install vmagent victoria-metrics/victoria-metrics-agent \
   -f "$SCRIPT_DIR/vmagent-values.yaml"
 
 kubectl get pods -n monitoring
-kubectl logs -n monitoring deploy/vmagent-victoria-metrics-agent- --tail=100
+kubectl logs -n monitoring deploy/vmagent-victoria-metrics-agent --tail=100
