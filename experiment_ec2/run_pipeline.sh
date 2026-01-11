@@ -9,7 +9,10 @@ set -euo pipefail
 # ---------------- Defaults (match your old PS1 intent) ----------------
 INJECTION_SCRIPT="./inject_stresschaos.sh"                # required
 EXPORT_CMD="python3"
-EXPORT_SCRIPT="./export_metrics.py"
+
+#EXPORT_SCRIPT="./export_metrics.py"
+VENV_PY="$(cd "$(dirname "$0")" && pwd)/.venv_query/bin/python"
+EXPORT_CMD="$VENV_PY"
 
 PROM_URL="http://127.0.0.1:8428"
 NAMESPACE="sock-shop"
