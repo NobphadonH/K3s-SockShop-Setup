@@ -25,6 +25,8 @@ STEP="5s"
 DURATION=""                        # required
 OUT_ROOT="./runs"
 
+SERVICE = "carts"
+
 # injection-script passthrough (for our inject_stresschaos.sh)
 INJ_YAML="./carts-cpu-stress.yaml"
 INJ_NAME="carts-cpu-stress"
@@ -145,6 +147,7 @@ INJ_CMD=( "$INJECTION_SCRIPT"
   -y "$INJ_YAML"
   -n "$INJ_NAME"
   -s "$INJ_NS"
+  -t "$SERVICE"
 )
 
 # Only pass -k if provided (keeps it flexible)
