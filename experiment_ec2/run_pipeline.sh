@@ -10,7 +10,7 @@ set -euo pipefail
 INJECTION_SCRIPT="./inject_stresschaos.sh"                # required
 EXPORT_CMD="python3"
 
-#EXPORT_SCRIPT="./export_metrics.py"
+EXPORT_SCRIPT="./export_metrics.py"
 VENV_PY="$(cd "$(dirname "$0")" && pwd)/.venv_query/bin/python"
 EXPORT_CMD="$VENV_PY"
 
@@ -25,23 +25,24 @@ STEP="5s"
 DURATION=""                        # required
 OUT_ROOT="./runs"
 
-SERVICE = "carts"
+SERVICE="carts"
 
 # injection-script passthrough (for our inject_stresschaos.sh)
 INJ_YAML="./carts-cpu-stress.yaml"
 INJ_NAME="carts-cpu-stress"
 INJ_NS="sock-shop"
-KUBECONFIG_PATH="~/k3s.yaml"                 # optional (recommended)
+KUBECONFIG_PATH="/home/ubuntu/k3s.yaml"                 # optional (recommended)
 
 NODES=false                        # optional
 
 usage() {
   cat >&2 <<EOF
-Usage: $0 -i <injection_script> -d <duration> [options]
+Usage: $0 -i <injection_script> -d <duration> -t <service> [options]
 
 Required:
   -i <path>        Injection script (e.g., ./inject_stresschaos.sh)
   -d <duration>    Duration to pass to injector (e.g., 60s, 2m, 1h, 120)
+  -t <service>     Target service for injection (e.g., carts, orders, users)
 
 Common options:
   -o <out_root>      Output root folder (default: ./runs)
@@ -53,7 +54,7 @@ Exporter args:
   -n <namespace>      Namespace (default: sock-shop)
   -s <services_csv>   Services CSV (default: $SERVICES_CSV)
   -w <window_minutes> Window minutes (default: 10)
-  -t <step>           Step (default: 5s)
+  --step <step>           Step (default: 5s)
   --nodes             Enable node discovery (passes --nodes to exporter)
   --controlplane-re <regex>  (default: $CONTROLPLANE_RE)
 
@@ -98,6 +99,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     -i) INJECTION_SCRIPT="${2:-}"; shift 2 ;;
     -d) DURATION="${2:-}"; shift 2 ;;
+    -t) SERVICE="${2:-}"; shift 2 ;;
     -o) OUT_ROOT="${2:-}"; shift 2 ;;
     -p) PROM_URL="${2:-}"; shift 2 ;;
     -e) EXPORT_SCRIPT="${2:-}"; shift 2 ;;
@@ -105,7 +107,7 @@ while [[ $# -gt 0 ]]; do
     -n) NAMESPACE="${2:-}"; shift 2 ;;
     -s) SERVICES_CSV="${2:-}"; shift 2 ;;
     -w) WINDOW_MINUTES="${2:-}"; shift 2 ;;
-    -t) STEP="${2:-}"; shift 2 ;;
+    --step) STEP="${2:-}"; shift 2 ;;
     -k) KUBECONFIG_PATH="${2:-}"; shift 2 ;;
     --nodes) NODES=true; shift 1 ;;
     --controlplane-re) CONTROLPLANE_RE="${2:-}"; shift 2 ;;
@@ -119,6 +121,7 @@ done
 
 [[ -n "$INJECTION_SCRIPT" ]] || usage
 [[ -n "$DURATION" ]] || usage
+[[ -n "$SERVICE" ]] || usage
 
 # ---------------- prep run folder (same behavior as PS1) ----------------
 TS_NAME="$(date '+%Y%m%d_%H%M%S')"
@@ -144,7 +147,6 @@ echo -n "$DURATION" > "$DURATION_FILE"
 INJ_CMD=( "$INJECTION_SCRIPT"
   -d "$DURATION"
   -o "$INJECT_TIME_FILE"
-  -y "$INJ_YAML"
   -n "$INJ_NAME"
   -s "$INJ_NS"
   -t "$SERVICE"
