@@ -67,7 +67,8 @@ LABEL_SELECTOR=""      # default: name=<service>
 LOG_PATH=""            # default derived from epoch_out dir
 
 START_MB="20MB"
-INC_MB="20MB"
+INC_MB=""
+MAX_MB="200MB"              
 COUNT=""               # default: auto from duration/step
 STEP_DURATION="30s"
 
@@ -172,7 +173,21 @@ if ! [[ "$COUNT" =~ ^[0-9]+$ ]] || [[ "$COUNT" -lt 1 ]]; then
 fi
 
 start_num="${START_MB%MB}"
-inc_num="${INC_MB%MB}"
+max_num="${MAX_MB%MB}"
+#inc_num="${INC_MB%MB}"
+
+if [[ "$max_num" -lt "$start_num" ]]; then
+  # don't allow exceeding ceiling; treat as constant stress
+  max_num="$start_num"
+fi
+
+if [[ "$COUNT" -le 1 ]]; then
+  inc_num=0
+else
+  inc_num=$(( (max_num - start_num) / (COUNT - 1) ))
+  [[ "$inc_num" -ge 0 ]] || inc_num=0
+fi
+
 
 # output paths
 EPOCH_DIR="$(dirname "$EPOCH_OUT")"
@@ -205,6 +220,7 @@ echo "$(ts) namespace=$NAMESPACE name_prefix=$CHAOS_NAME selector=$SEL_KEY=$SEL_
 # ---------------- main loop ----------------
 for ((i=1; i<=COUNT; i++)); do
   size_num=$(( start_num + (i-1)*inc_num ))
+  if [[ "$size_num" -gt "$max_num" ]]; then size_num="$max_num"; fi
   SIZE="${size_num}MB"
   STEP_NAME="${CHAOS_NAME}-s${i}"
 
