@@ -151,7 +151,7 @@ fi
 
 # sizes
 is_mb "$START_MB" || { echo "ERROR: --start must be like 30MB, got: $START_MB" >&2; exit 4; }
-is_mb "$INC_MB" || { echo "ERROR: --inc must be like 30MB, got: $INC_MB" >&2; exit 4; }
+# is_mb "$INC_MB" || { echo "ERROR: --inc must be like 30MB, got: $INC_MB" >&2; exit 4; }
 
 # workers
 if ! [[ "$WORKERS" =~ ^[0-9]+$ ]] || [[ "$WORKERS" -lt 1 ]]; then
