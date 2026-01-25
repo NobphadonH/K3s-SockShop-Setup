@@ -242,11 +242,11 @@ SIMPLE_COLS_ORDER = [
     # cpu (15)
     "carts_cpu","carts-db_cpu","catalogue_cpu","catalogue-db_cpu","front-end_cpu",
     "orders_cpu","orders-db_cpu","payment_cpu","queue-master_cpu","rabbitmq_cpu",
-    "rabbitmq-exporter_cpu","session-db_cpu","shipping_cpu","user_cpu","user-db_cpu",
+    "session-db_cpu","shipping_cpu","user_cpu","user-db_cpu",
     # mem (15)
     "carts_mem","carts-db_mem","catalogue_mem","catalogue-db_mem","front-end_mem",
     "orders_mem","orders-db_mem","payment_mem","queue-master_mem","rabbitmq_mem",
-    "rabbitmq-exporter_mem","session-db_mem","shipping_mem","user_mem","user-db_mem",
+    "session-db_mem","shipping_mem","user_mem","user-db_mem",
     # workload (8)
     "carts_workload","catalogue_workload","front-end_workload","orders_workload",
     "payment_workload","queue-master_workload","shipping_workload","user_workload",
@@ -254,15 +254,15 @@ SIMPLE_COLS_ORDER = [
     "carts_error","front-end_error","orders_error","queue-master_error","shipping_error",
     # latency-50 (8)
     "carts_latency-50","catalogue_latency-50","front-end_latency-50","orders_latency-50",
-    "payment_latency-50","queue-master_latency-50","shipping_latency-50","user_latency-50",
+    "payment_latency-50","shipping_latency-50","user_latency-50",
     # latency-90 (8)
     "carts_latency-90","catalogue_latency-90","front-end_latency-90","orders_latency-90",
-    "payment_latency-90","queue-master_latency-90","shipping_latency-90","user_latency-90",
+    "payment_latency-90","shipping_latency-90","user_latency-90",
 ]
 
 WORKLOAD_SERVICES = {"carts","catalogue","front-end","orders","payment","queue-master","shipping","user"}
 ERROR_SERVICES    = {"carts","front-end","orders","queue-master","shipping"}
-LAT_SERVICES      = WORKLOAD_SERVICES
+LAT_SERVICES      = {"carts","catalogue","front-end","orders","payment","shipping","user"}
 
 def collect_for_service_simple(prom, ns, svc, start, end, step, timeout, verify, lat_unit) -> pd.DataFrame:
     df_all = None
