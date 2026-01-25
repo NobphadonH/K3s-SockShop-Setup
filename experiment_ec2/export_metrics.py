@@ -128,7 +128,13 @@ def _ts_matrix_to_series(payload: Dict, target_col: str) -> pd.DataFrame:
         return pd.DataFrame(columns=["time", target_col]).set_index("time")
 
     # If multiple series returned, sum them (keeps old behavior).
-    df = pd.concat(frames, axis=1).sum(axis=1, min_count=1).to_frame(name=target_col)
+    #df = pd.concat(frames, axis=1).sum(axis=1, min_count=1).to_frame(name=target_col)
+    df = (
+    pd.concat(frames, axis=0)              # stack rows
+      .groupby(level=0)                    # group by timestamp index
+      .sum(numeric_only=True, min_count=1) # sum series at same timestamp
+      .rename(columns={target_col: target_col})
+    )
     df.index.name = "time"
     return df
 
