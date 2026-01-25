@@ -287,7 +287,14 @@ def collect_for_service_simple(prom, ns, svc, start, end, step, timeout, verify,
     # MEM
     mem_col = f"{svc}_mem"
     payload = prom_range(prom, q_mem_usage(ns, svc), start, end, step, timeout, verify)
-    print(svc, "mem payload series=", len(payload["data"]["result"]),"last payload ts=", int(float(payload["data"]["result"][0]["values"][-1][0])))
+    res = payload["data"]["result"]
+    print("series_count =", len(res))
+    for s in res:
+        pod = s.get("metric", {}).get("pod", "<no pod>")
+        vals = s.get("values") or []
+        last = int(float(vals[-1][0])) if vals else None
+        print("pod =", pod, "last_ts =", last)
+    #print(svc, "mem payload series=", len(payload["data"]["result"]),"last payload ts=", int(float(payload["data"]["result"][0]["values"][-1][0])))
     df_all = _merge_into(df_all, _ts_matrix_to_series(payload, mem_col))
 
     # WORKLOAD
