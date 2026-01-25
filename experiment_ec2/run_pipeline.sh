@@ -16,7 +16,7 @@ EXPORT_CMD="$VENV_PY"
 
 PROM_URL="http://127.0.0.1:8428"
 NAMESPACE="sock-shop"
-SERVICES_CSV="carts,users,orders,payment,shipping,frontend,catalogue,queue-master,rabbitmq,orders-db,carts-db,users-db"
+SERVICES_CSV="carts,user,orders,payment,shipping,front-end,catalogue,queue-master,rabbitmq,rabbitmq-exporter,orders-db,carts-db,user-db"
 CONTROLPLANE_RE=".*(control-plane|master).*"
 NODE_RATE_WINDOW="3m"
 WINDOW_MINUTES=10
