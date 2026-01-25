@@ -347,6 +347,12 @@ def main():
         print("No data returned. Check labels, metric names, or time range.", file=sys.stderr)
         sys.exit(2)
 
+
+    for svc in ERROR_SERVICES:
+        col = f"{svc}_error"
+        if col in merged.columns:
+            merged[col] = merged[col].fillna(0.0)
+
     # Convert time index to epoch seconds
     merged.index = merged.index.astype("int64") // 10**9
     merged.index.name = "time"
