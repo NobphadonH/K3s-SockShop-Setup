@@ -120,21 +120,27 @@ def _ts_matrix_to_series(payload: Dict, target_col: str) -> pd.DataFrame:
         vals = series.get("values") or []
         if not vals:
             continue
-        ts = [dt.datetime.fromtimestamp(float(t), tz=dt.timezone.utc) for t, _ in vals]
-        v = [float(x) if x not in ("NaN", "Inf", "-Inf") else math.nan for _, x in vals]
+
+        # Keep time as epoch seconds INT (no datetime conversion)
+        ts = [int(float(t)) for t, _ in vals]
+        v = []
+        for _, x in vals:
+            # be robust to weird strings
+            if x in ("NaN", "Inf", "-Inf", None):
+                v.append(math.nan)
+            else:
+                try:
+                    v.append(float(x))
+                except Exception:
+                    v.append(math.nan)
+
         frames.append(pd.DataFrame({"time": ts, target_col: v}).set_index("time"))
 
     if not frames:
         return pd.DataFrame(columns=["time", target_col]).set_index("time")
 
-    # If multiple series returned, sum them (keeps old behavior).
-    #df = pd.concat(frames, axis=1).sum(axis=1, min_count=1).to_frame(name=target_col)
-    df = (
-    pd.concat(frames, axis=0)              # stack rows
-      .groupby(level=0)                    # group by timestamp index
-      .sum(numeric_only=True, min_count=1) # sum series at same timestamp
-      .rename(columns={target_col: target_col})
-    )
+    # Sum across returned series (pods) at the SAME epoch second
+    df = pd.concat(frames, axis=0).groupby(level=0).sum(min_count=1)
     df.index.name = "time"
     return df
 
