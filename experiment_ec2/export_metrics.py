@@ -31,7 +31,7 @@ rate_window = "3m"
 def _parse_args():
     ap = argparse.ArgumentParser()
     ap.add_argument("--prom", default="http://127.0.0.1:8428",   help="Prometheus base URL, e.g. http://localhost:9090")
-    ap.add_argument("--services", default="carts,users,orders,payment,shipping,frontend,catalogue,queue-master,rabbitmq,orders-db,carts-db,users-db",  help="Comma-separated list of service workload names (destination_workload)")
+    ap.add_argument("--services", default="carts,user,orders,payment,shipping,front-end,catalogue,queue-master,rabbitmq,orders-db,carts-db,user-db",  help="Comma-separated list of service workload names (destination_workload)")
     ap.add_argument("--nodes",  action="store_true", help="Auto-discover all worker nodes (exclude control-plane)")
     ap.add_argument("--controlplane-re", default=".*(control-plane|master).*",
                 help="Regex for control-plane nodename(s) in node_uname_info")
