@@ -7,7 +7,8 @@ set -euo pipefail
 #  (No detection step)
 
 # ---------------- Defaults (match your old PS1 intent) ----------------
-INJECTION_SCRIPT="./inject_stresschaos.sh"                # required
+INJECTION_SCRIPT="./inject_stresschaos.sh"               
+FAULT_INJECTION_TYPE="cpu"                                # required
 EXPORT_CMD="python3"
 
 EXPORT_SCRIPT="./export_metrics.py"
@@ -21,14 +22,14 @@ CONTROLPLANE_RE=".*(control-plane|master).*"
 NODE_RATE_WINDOW="3m"
 WINDOW_MINUTES=10
 STEP="5s"
+STEP_LIST="1s,5s,15s"                       # optional (comma-separated), e.g. "2s,5s,10s" (overrides STEP)
 
-DURATION=""                        # required
+DURATION="600s"                        # required
 OUT_ROOT="./runs"
 
 SERVICE="carts"
 
 # injection-script passthrough (for our inject_stresschaos.sh)
-INJ_YAML="./carts-cpu-stress.yaml"
 INJ_NAME="carts-cpu-stress"
 INJ_NS="sock-shop"
 KUBECONFIG_PATH="/home/ubuntu/k3s.yaml"                 # optional (recommended)
@@ -55,6 +56,8 @@ Exporter args:
   -s <services_csv>   Services CSV (default: $SERVICES_CSV)
   -w <window_minutes> Window minutes (default: 10)
   --step <step>           Step (default: 5s)
+  --step-list <csv>       Export multiple times with different steps (e.g. "2s,5s,10s").
+                          If set, overrides --step.
   --nodes             Enable node discovery (passes --nodes to exporter)
   --controlplane-re <regex>  (default: $CONTROLPLANE_RE)
 
@@ -98,6 +101,7 @@ read_epoch() {
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -i) INJECTION_SCRIPT="${2:-}"; shift 2 ;;
+    -f) FAULT_INJECTION_TYPE="${2:-}"; shift 2 ;;
     -d) DURATION="${2:-}"; shift 2 ;;
     -t) SERVICE="${2:-}"; shift 2 ;;
     -o) OUT_ROOT="${2:-}"; shift 2 ;;
@@ -108,10 +112,10 @@ while [[ $# -gt 0 ]]; do
     -s) SERVICES_CSV="${2:-}"; shift 2 ;;
     -w) WINDOW_MINUTES="${2:-}"; shift 2 ;;
     --step) STEP="${2:-}"; shift 2 ;;
+    --step-list) STEP_LIST="${2:-}"; shift 2 ;;
     -k) KUBECONFIG_PATH="${2:-}"; shift 2 ;;
     --nodes) NODES=true; shift 1 ;;
     --controlplane-re) CONTROLPLANE_RE="${2:-}"; shift 2 ;;
-    --inj-yaml) INJ_YAML="${2:-}"; shift 2 ;;
     --inj-name) INJ_NAME="${2:-}"; shift 2 ;;
     --inj-ns) INJ_NS="${2:-}"; shift 2 ;;
     -h|--help) usage ;;
@@ -119,12 +123,20 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ -n "$INJECTION_SCRIPT" ]] || usage
+[[ -n "$FAULT_INJECTION_TYPE" ]] || usage
 [[ -n "$DURATION" ]] || usage
 [[ -n "$SERVICE" ]] || usage
 
+if ["$FAULT_INJECTION_TYPE" = "cpu" ]; then
+  INJECTION_SCRIPT="./inject_cpu.sh"
+elif [ "$FAULT_INJECTION_TYPE" = "mem" ]; then
+  INJECTION_SCRIPT="./inject_memory.sh"
+elif [ "$FAULT_INJECTION_TYPE" = "delay" ]; then
+  INJECTION_SCRIPT="./inject_delay.sh"
+fi
+
 # ---------------- prep run folder (same behavior as PS1) ----------------
-TS_NAME="$(date '+%Y%m%d_%H%M%S')"
+TS_NAME="${SERVICE}_${FAULT_INJECTION_TYPE}_$(date '+%Y%m%d_%H%M%S')"
 RUN_DIR="${OUT_ROOT}/${TS_NAME}"
 mkdir -p "$RUN_DIR"
 RUN_DIR="$(cd "$RUN_DIR" && pwd)"
@@ -134,7 +146,7 @@ echo "RCA pipeline log" > "$LOG_PATH"
 
 INJECT_TIME_FILE="${RUN_DIR}/injection_time.txt"
 DURATION_FILE="${RUN_DIR}/injection_duration.txt"
-MERGED_CSV="${RUN_DIR}/merged.csv"
+MERGED_BASE="${RUN_DIR}/data"   # we'll write merged_<step>.csv (and keep a merged.csv symlink for convenience)
 
 write_log "Run directory: $RUN_DIR"
 
@@ -167,35 +179,74 @@ INJECT_EPOCH="$(read_epoch "$INJECT_TIME_FILE" "injection_time")"
 write_log "Injection epoch (start): $INJECT_EPOCH"
 
 # ===================== 2) EXPORT =====================
-write_log "STEP 2: export metrics around injection time -> $MERGED_CSV"
 
-EXP_ARGS=(
-  "--prom" "$PROM_URL"
-  "--services" "$SERVICES_CSV"
-  "--namespace" "$NAMESPACE"
-  "--inject" "$INJECT_EPOCH"
-  "--window-minutes" "$WINDOW_MINUTES"
-  "--step" "$STEP"
-  "--out" "$MERGED_CSV"
-  "--controlplane-re" "$CONTROLPLANE_RE"
-  # "--node-rate-window" "$NODE_RATE_WINDOW"
-)
-
-if $NODES; then
-  EXP_ARGS+=( "--nodes" )
+# If STEP_LIST is set, we'll export once per step value. Otherwise, export only using STEP.
+if [[ -n "${STEP_LIST:-}" ]]; then
+  IFS=',' read -r -a STEP_ARR <<< "$STEP_LIST"
+else
+  STEP_ARR=( "$STEP" )
 fi
 
-write_log "Calling: $EXPORT_CMD $EXPORT_SCRIPT ${EXP_ARGS[*]}"
-( "$EXPORT_CMD" "$EXPORT_SCRIPT" "${EXP_ARGS[@]}" ) 2>&1 | tee -a "$LOG_PATH"
+write_log "STEP 2: export metrics around injection time (steps: ${STEP_ARR[*]})"
 
-if [[ ! -f "$MERGED_CSV" ]]; then
-  echo "ERROR: Export failed: CSV not found at $MERGED_CSV" >&2
+EXPORTED_FILES=()
+FIRST_OUT=""
+
+for STEP_VAL in "${STEP_ARR[@]}"; do
+  # Trim whitespace around each item
+  STEP_VAL="${STEP_VAL//[[:space:]]/}"
+  [[ -n "$STEP_VAL" ]] || continue
+
+  # Safe suffix for filenames, e.g. "2s", "500ms" (drops symbols like '.')
+  STEP_TAG="${STEP_VAL//[^0-9A-Za-z]/}"
+  [[ -n "$STEP_TAG" ]] || STEP_TAG="step"
+
+  OUT_CSV="${MERGED_BASE}_${STEP_TAG}.csv"
+
+  EXP_ARGS=(
+    "--prom" "$PROM_URL"
+    "--services" "$SERVICES_CSV"
+    "--namespace" "$NAMESPACE"
+    "--inject" "$INJECT_EPOCH"
+    "--window-minutes" "$WINDOW_MINUTES"
+    "--step" "$STEP_VAL"
+    "--out" "$OUT_CSV"
+    "--controlplane-re" "$CONTROLPLANE_RE"
+    # "--node-rate-window" "$NODE_RATE_WINDOW"
+  )
+
+  if $NODES; then
+    EXP_ARGS+=( "--nodes" )
+  fi
+
+  write_log "Calling: $EXPORT_CMD $EXPORT_SCRIPT ${EXP_ARGS[*]}"
+  ( "$EXPORT_CMD" "$EXPORT_SCRIPT" "${EXP_ARGS[@]}" ) 2>&1 | tee -a "$LOG_PATH"
+
+  if [[ ! -f "$OUT_CSV" ]]; then
+    echo "ERROR: Export failed: CSV not found at $OUT_CSV" >&2
+    exit 4
+  fi
+
+  EXPORTED_FILES+=( "$OUT_CSV" )
+  if [[ -z "$FIRST_OUT" ]]; then
+    FIRST_OUT="$OUT_CSV"
+  fi
+
+  write_log "Export OK: $OUT_CSV"
+done
+
+if [[ ${#EXPORTED_FILES[@]} -eq 0 ]]; then
+  echo "ERROR: No exports were produced (STEP/STEP_LIST empty?)" >&2
   exit 4
 fi
 
-write_log "Export OK."
+# Convenience: keep a stable path for downstream scripts
+ln -sf "$(basename "$FIRST_OUT")" "${RUN_DIR}/data.csv"
+write_log "Symlinked ${RUN_DIR}/data.csv -> $FIRST_OUT"
 
 write_log "DONE. Artifacts:"
 write_log "  - $INJECT_TIME_FILE"
 write_log "  - $DURATION_FILE"
-write_log "  - $MERGED_CSV"
+for f in "${EXPORTED_FILES[@]}"; do
+  write_log "  - $f"
+done
