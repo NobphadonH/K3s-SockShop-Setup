@@ -26,7 +26,7 @@ from typing import Dict, Optional
 import pandas as pd
 import requests
 
-rate_window = "3m"
+rate_window = "2m"
 
 def _parse_args():
     ap = argparse.ArgumentParser()
@@ -164,7 +164,7 @@ sum by (pod) (
 def q_mem_usage(namespace: str, svc: str) -> str:
     # Working set is a better “real memory pressure” signal
     return f'''
-max by (pod) (
+sum by (pod) (
   container_memory_working_set_bytes{{namespace="{namespace}", pod=~"{svc}.*", container!="POD", container!=""}}
 )
 '''.strip()
