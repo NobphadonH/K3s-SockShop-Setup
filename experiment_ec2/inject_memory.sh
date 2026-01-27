@@ -68,7 +68,7 @@ LOG_PATH=""            # default derived from epoch_out dir
 
 START_MB="20MB"
 INC_MB=""
-MAX_MB="200MB"              
+MAX_MB="130MB"\         
 COUNT=""               # default: auto from duration/step
 STEP_DURATION="30s"
 
@@ -170,6 +170,10 @@ fi
 if ! [[ "$COUNT" =~ ^[0-9]+$ ]] || [[ "$COUNT" -lt 1 ]]; then
   echo "ERROR: --count must be a positive integer, got: $COUNT" >&2
   exit 4
+fi
+
+if [ "$SERVICE" = "carts" ] || [ "$SERVICE" = "orders" ]; then
+    MAX_MB="150MB"
 fi
 
 start_num="${START_MB%MB}"
