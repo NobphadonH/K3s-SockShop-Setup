@@ -127,12 +127,12 @@ done
 [[ -n "$DURATION" ]] || usage
 [[ -n "$SERVICE" ]] || usage
 
-if ["$FAULT_INJECTION_TYPE" = "cpu" ]; then
+if [ "$FAULT_INJECTION_TYPE" = "cpu" ]; then
   INJECTION_SCRIPT="./inject_cpu.sh"
 elif [ "$FAULT_INJECTION_TYPE" = "mem" ]; then
   INJECTION_SCRIPT="./inject_memory.sh"
 elif [ "$FAULT_INJECTION_TYPE" = "delay" ]; then
-  INJECTION_SCRIPT="./inject_delay.sh"
+  INJECTION_SCRIPT="./inject_network.sh"
 fi
 
 # ---------------- prep run folder (same behavior as PS1) ----------------
