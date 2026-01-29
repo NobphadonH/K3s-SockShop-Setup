@@ -68,7 +68,7 @@ LOG_PATH=""            # default derived from epoch_out dir
 
 START_MB="20MB"
 INC_MB=""
-MAX_MB="130MB"\         
+MAX_MB="130MB"         
 COUNT=""               # default: auto from duration/step
 STEP_DURATION="30s"
 
