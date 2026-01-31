@@ -23,6 +23,7 @@ NODE_RATE_WINDOW="3m"
 WINDOW_MINUTES=10
 STEP="5s"
 STEP_LIST="1s,5s,15s"                       # optional (comma-separated), e.g. "2s,5s,10s" (overrides STEP)
+WAIT_TIME="0"                          # optional
 
 DURATION="600s"                        # required
 OUT_ROOT="./runs"
@@ -111,6 +112,7 @@ while [[ $# -gt 0 ]]; do
     -n) NAMESPACE="${2:-}"; shift 2 ;;
     -s) SERVICES_CSV="${2:-}"; shift 2 ;;
     -w) WINDOW_MINUTES="${2:-}"; shift 2 ;;
+    --wait) WAIT_TIME="${2:-}"; shift 2 ;;
     --step) STEP="${2:-}"; shift 2 ;;
     --step-list) STEP_LIST="${2:-}"; shift 2 ;;
     -k) KUBECONFIG_PATH="${2:-}"; shift 2 ;;
@@ -179,6 +181,11 @@ INJECT_EPOCH="$(read_epoch "$INJECT_TIME_FILE" "injection_time")"
 write_log "Injection epoch (start): $INJECT_EPOCH"
 
 # ===================== 2) EXPORT =====================
+
+if [ "$WAIT_TIME" != "0" ]; then
+  write_log "Waiting $WAIT_TIME before exporting metrics..."
+  sleep "$WAIT_TIME"
+fi
 
 # If STEP_LIST is set, we'll export once per step value. Otherwise, export only using STEP.
 if [[ -n "${STEP_LIST:-}" ]]; then
