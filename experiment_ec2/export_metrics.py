@@ -90,15 +90,27 @@ def discover_worker_instances(prom: str, timeout: int, verify: bool, controlplan
 def _rfc3339_from_epoch(e: int) -> str:
     return dt.datetime.fromtimestamp(e, tz=dt.timezone.utc).isoformat().replace("+00:00", "Z")
 
+def _normalize_time_arg(x: str) -> str:
+    # Accept epoch seconds like "1738200000" (or "1738200000.0")
+    s = x.strip()
+    if s.replace(".", "", 1).isdigit():
+        return _rfc3339_from_epoch(int(float(s)))
+    return s  # assume RFC3339
+
 def _compute_window(args):
+    # 1) inject shortcut only when BOTH start and end are absent
     if args.inject and (not args.start and not args.end):
         half = args.window_minutes * 60
         start_epoch = args.inject - half
         end_epoch = args.inject + half
         return _rfc3339_from_epoch(start_epoch), _rfc3339_from_epoch(end_epoch)
+
+    # 2) otherwise must have both start and end
     if not args.start or not args.end:
         raise SystemExit("--start/--end or --inject must be provided")
-    return args.start, args.end
+
+    # 3) allow epoch or RFC3339 for start/end
+    return _normalize_time_arg(args.start), _normalize_time_arg(args.end)
 
 def prom_range(prom: str, q: str, start: str, end: str, step: str, timeout: int, verify: bool) -> Dict:
     url = f"{prom.rstrip('/')}/api/v1/query_range"

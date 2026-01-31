@@ -26,7 +26,7 @@ STEP_LIST="1s,5s,15s"                       # optional (comma-separated), e.g. "
 WAIT_TIME="0"                          # optional
 INJECT_START_AD=""
 
-DURATION="600s"                        # required
+DURATION="120"                        # required
 OUT_ROOT="./runs"
 
 SERVICE="carts"
@@ -130,6 +130,7 @@ done
 [[ -n "$FAULT_INJECTION_TYPE" ]] || usage
 [[ -n "$DURATION" ]] || usage
 [[ -n "$SERVICE" ]] || usage
+[[ -n "$INJECT_START_AD" ]] || usage
 
 if [ "$FAULT_INJECTION_TYPE" = "cpu" ]; then
   INJECTION_SCRIPT="./inject_cpu.sh"
@@ -150,6 +151,7 @@ echo "RCA pipeline log" > "$LOG_PATH"
 
 INJECT_TIME_FILE="${RUN_DIR}/injection_time.txt"
 DURATION_FILE="${RUN_DIR}/injection_duration.txt"
+INJECT_START_AD_FILE="${RUN_DIR}/injection_start.txt"
 MERGED_BASE="${RUN_DIR}/data"   # we'll write merged_<step>.csv (and keep a merged.csv symlink for convenience)
 
 write_log "Run directory: $RUN_DIR"
@@ -181,14 +183,15 @@ write_log "Injection script finished."
 
 INJECT_EPOCH="$(read_epoch "$INJECT_TIME_FILE" "injection_time")"
 write_log "Injection epoch (start): $INJECT_EPOCH"
-EXPORT_START_EPOCH=$INJECT_EPOCH-$INJECT_START_AD
-EXPORT_END_EPOCH=$EXPORT_START_EPOCH+$WINDOW_MINUTES*2*60
+EXPORT_START_EPOCH=$(( INJECT_EPOCH - INJECT_START_AD ))
+EXPORT_END_EPOCH=$(( EXPORT_START_EPOCH + WINDOW_MINUTES * 2 * 60 ))
 write_log "Export start epoch: $EXPORT_START_EPOCH"
 write_log "Export end epoch: $EXPORT_END_EPOCH"
 
-WAIT_TIME=$WINDOW_MINUTES*2*60-$INJECT_START_AD-$DURATION
+WAIT_TIME=$(( WINDOW_MINUTES * 2 * 60 - INJECT_START_AD - DURATION ))
 write_log "Calculated wait time before export: $WAIT_TIME seconds"
 
+echo -n "$INJECT_START_AD" > "$INJECT_START_AD_FILE"
 
 # ===================== 2) EXPORT =====================
 
@@ -225,7 +228,9 @@ for STEP_VAL in "${STEP_ARR[@]}"; do
     "--services" "$SERVICES_CSV"
     "--namespace" "$NAMESPACE"
     "--inject" "$INJECT_EPOCH"
-    "--window-minutes" "$WINDOW_MINUTES"
+    "--start" "$EXPORT_START_EPOCH"
+    "--end" "$EXPORT_END_EPOCH"
+    #"--window-minutes" "$WINDOW_MINUTES"
     "--step" "$STEP_VAL"
     "--out" "$OUT_CSV"
     "--controlplane-re" "$CONTROLPLANE_RE"
