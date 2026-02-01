@@ -188,7 +188,7 @@ EXPORT_END_EPOCH=$(( EXPORT_START_EPOCH + WINDOW_MINUTES * 2 * 60 ))
 write_log "Export start epoch: $EXPORT_START_EPOCH"
 write_log "Export end epoch: $EXPORT_END_EPOCH"
 
-WAIT_TIME=$(( EXPORT_END_EPOCH - INJECT_EPOCH ))
+WAIT_TIME=$(( EXPORT_END_EPOCH - INJECT_EPOCH - DURATION ))
 write_log "Calculated wait time before export: $WAIT_TIME seconds"
 
 echo -n "$INJECT_START_AD" > "$INJECT_START_AD_FILE"
