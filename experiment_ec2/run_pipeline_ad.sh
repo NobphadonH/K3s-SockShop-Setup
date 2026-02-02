@@ -188,7 +188,9 @@ EXPORT_END_EPOCH=$(( EXPORT_START_EPOCH + WINDOW_MINUTES * 2 * 60 ))
 write_log "Export start epoch: $EXPORT_START_EPOCH"
 write_log "Export end epoch: $EXPORT_END_EPOCH"
 
-WAIT_TIME=$(( EXPORT_END_EPOCH - INJECT_EPOCH - DURATION ))
+#DURATION_NUM="${DURATION%s}"
+
+WAIT_TIME=$(( EXPORT_END_EPOCH - INJECT_EPOCH - 120 ))
 write_log "Calculated wait time before export: $WAIT_TIME seconds"
 
 echo -n "$INJECT_START_AD" > "$INJECT_START_AD_FILE"
@@ -197,7 +199,7 @@ echo -n "$INJECT_START_AD" > "$INJECT_START_AD_FILE"
 
 if [ "$WAIT_TIME" != "0" ]; then
   write_log "Waiting $WAIT_TIME before exporting metrics..."
-  sleep "$WAIT_TIME"
+  sleep "${WAIT_TIME}s"
 fi
 
 # If STEP_LIST is set, we'll export once per step value. Otherwise, export only using STEP.
