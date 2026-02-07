@@ -1,0 +1,9 @@
+services:
+  experiment:
+    # 1. Use the image you pushed to the registry
+    image: nope1032/rca-experiment:latest
+    
+    # 2. Map the output directory
+    volumes:
+      # format: [HOST PATH] : [CONTAINER PATH]
+      - ./experiment_results:/app/myoutput

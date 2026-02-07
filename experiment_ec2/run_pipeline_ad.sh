@@ -199,7 +199,7 @@ echo -n "$INJECT_START_AD" > "$INJECT_START_AD_FILE"
 
 if [ "$WAIT_TIME" != "0" ]; then
   write_log "Waiting $WAIT_TIME before exporting metrics..."
-  sleep "${WAIT_TIME}s"
+  sleep "${WAIT_TIME}"
 fi
 
 # If STEP_LIST is set, we'll export once per step value. Otherwise, export only using STEP.
