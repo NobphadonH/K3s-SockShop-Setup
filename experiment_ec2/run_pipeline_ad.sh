@@ -38,6 +38,8 @@ KUBECONFIG_PATH="/home/ubuntu/k3s.yaml"                 # optional (recommended)
 
 NODES=false                        # optional
 
+CLEAN=false
+
 usage() {
   cat >&2 <<EOF
 Usage: $0 -i <injection_script> -d <duration> -t <service> [options]
@@ -98,6 +100,10 @@ read_epoch() {
   echo "$raw"
 }
 
+now_epoch() {
+  date +%s
+}
+
 # ---------------- arg parsing ----------------
 # We support a couple of long options manually.
 while [[ $# -gt 0 ]]; do
@@ -119,6 +125,7 @@ while [[ $# -gt 0 ]]; do
     --step-list) STEP_LIST="${2:-}"; shift 2 ;;
     -k) KUBECONFIG_PATH="${2:-}"; shift 2 ;;
     --nodes) NODES=true; shift 1 ;;
+    --clean) CLEAN=true; shift 1 ;;
     --controlplane-re) CONTROLPLANE_RE="${2:-}"; shift 2 ;;
     --inj-name) INJ_NAME="${2:-}"; shift 2 ;;
     --inj-ns) INJ_NS="${2:-}"; shift 2 ;;
@@ -127,10 +134,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ -n "$FAULT_INJECTION_TYPE" ]] || usage
-[[ -n "$DURATION" ]] || usage
-[[ -n "$SERVICE" ]] || usage
-[[ -n "$INJECT_START_AD" ]] || usage
+
+if ! $CLEAN; then
+  [[ -n "$FAULT_INJECTION_TYPE" ]] || usage
+  [[ -n "$DURATION" ]] || usage
+  [[ -n "$SERVICE" ]] || usage
+  [[ -n "$INJECT_START_AD" ]] || usage
+fi
 
 if [ "$FAULT_INJECTION_TYPE" = "cpu" ]; then
   INJECTION_SCRIPT="./inject_cpu.sh"
@@ -141,7 +151,11 @@ elif [ "$FAULT_INJECTION_TYPE" = "delay" ]; then
 fi
 
 # ---------------- prep run folder (same behavior as PS1) ----------------
-TS_NAME="${SERVICE}_${FAULT_INJECTION_TYPE}_$(date '+%Y%m%d_%H%M%S')"
+if $CLEAN; then
+  TS_NAME="clean_export_$(date '+%Y%m%d_%H%M%S')"
+else
+  TS_NAME="${SERVICE}_${FAULT_INJECTION_TYPE}_$(date '+%Y%m%d_%H%M%S')"
+fi
 RUN_DIR="${OUT_ROOT}/${TS_NAME}"
 mkdir -p "$RUN_DIR"
 RUN_DIR="$(cd "$RUN_DIR" && pwd)"
@@ -157,50 +171,65 @@ MERGED_BASE="${RUN_DIR}/data"   # we'll write merged_<step>.csv (and keep a merg
 write_log "Run directory: $RUN_DIR"
 
 # ===================== 1) INJECTION =====================
-write_log "STEP 1: injection script writes start epoch to $INJECT_TIME_FILE"
-write_log "Duration requested: $DURATION"
-echo -n "$DURATION" > "$DURATION_FILE"
+if $CLEAN; then
+  write_log "CLEAN flag is set. Run with skipping injection."
+  EXPORT_START_EPOCH="$(now_epoch)"
 
-# Build injector command
-INJ_CMD=( "$INJECTION_SCRIPT"
-  -d "$DURATION"
-  -o "$INJECT_TIME_FILE"
-  -n "$INJ_NAME"
-  -s "$INJ_NS"
-  -t "$SERVICE"
-)
-
-# Only pass -k if provided (keeps it flexible)
-if [[ -n "$KUBECONFIG_PATH" ]]; then
-  INJ_CMD+=( -k "$KUBECONFIG_PATH" )
-fi
-
-write_log "Calling injector: ${INJ_CMD[*]}"
-# tee stdout+stderr into log while still failing on errors
-( "${INJ_CMD[@]}" ) 2>&1 | tee -a "$LOG_PATH"
-
-write_log "Injection script finished."
-
-INJECT_EPOCH="$(read_epoch "$INJECT_TIME_FILE" "injection_time")"
-write_log "Injection epoch (start): $INJECT_EPOCH"
-EXPORT_START_EPOCH=$(( INJECT_EPOCH - INJECT_START_AD ))
-EXPORT_END_EPOCH=$(( EXPORT_START_EPOCH + WINDOW_MINUTES * 2 * 60 ))
-write_log "Export start epoch: $EXPORT_START_EPOCH"
-write_log "Export end epoch: $EXPORT_END_EPOCH"
-
-#DURATION_NUM="${DURATION%s}"
-
-WAIT_TIME=$(( EXPORT_END_EPOCH - INJECT_EPOCH - 120 ))
-write_log "Calculated wait time before export: $WAIT_TIME seconds"
-
-echo -n "$INJECT_START_AD" > "$INJECT_START_AD_FILE"
-
-# ===================== 2) EXPORT =====================
-
-if [ "$WAIT_TIME" != "0" ]; then
+  WAIT_TIME=1200
   write_log "Waiting $WAIT_TIME before exporting metrics..."
   sleep "${WAIT_TIME}"
+  EXPORT_END_EPOCH=$(( EXPORT_START_EPOCH + 1200 ))
+
+  # Injector time not used in clean mode; set to start so exporter doesn't break
+  INJECT_EPOCH="$EXPORT_START_EPOCH"
+  echo -n "$INJECT_EPOCH" > "$INJECT_TIME_FILE"
+
+else
+  write_log "STEP 1: injection script writes start epoch to $INJECT_TIME_FILE"
+  write_log "Duration requested: $DURATION"
+  echo -n "$DURATION" > "$DURATION_FILE"
+
+  # Build injector command
+  INJ_CMD=( "$INJECTION_SCRIPT"
+    -d "$DURATION"
+    -o "$INJECT_TIME_FILE"
+    -n "$INJ_NAME"
+    -s "$INJ_NS"
+    -t "$SERVICE"
+  )
+
+  # Only pass -k if provided (keeps it flexible)
+  if [[ -n "$KUBECONFIG_PATH" ]]; then
+    INJ_CMD+=( -k "$KUBECONFIG_PATH" )
+  fi
+
+  write_log "Calling injector: ${INJ_CMD[*]}"
+  # tee stdout+stderr into log while still failing on errors
+  ( "${INJ_CMD[@]}" ) 2>&1 | tee -a "$LOG_PATH"
+
+  write_log "Injection script finished."
+
+  INJECT_EPOCH="$(read_epoch "$INJECT_TIME_FILE" "injection_time")"
+  write_log "Injection epoch (start): $INJECT_EPOCH"
+  EXPORT_START_EPOCH=$(( INJECT_EPOCH - INJECT_START_AD ))
+  EXPORT_END_EPOCH=$(( EXPORT_START_EPOCH + WINDOW_MINUTES * 2 * 60 ))
+  write_log "Export start epoch: $EXPORT_START_EPOCH"
+  write_log "Export end epoch: $EXPORT_END_EPOCH"
+
+  #DURATION_NUM="${DURATION%s}"
+
+  WAIT_TIME=$(( EXPORT_END_EPOCH - INJECT_EPOCH - 120 ))
+  write_log "Calculated wait time before export: $WAIT_TIME seconds"
+
+  echo -n "$INJECT_START_AD" > "$INJECT_START_AD_FILE"
+
+  if [ "$WAIT_TIME" != "0" ]; then
+    write_log "Waiting $WAIT_TIME before exporting metrics..."
+    sleep "${WAIT_TIME}"
+  fi
 fi
+
+# ===================== 2) EXPORT =====================
 
 # If STEP_LIST is set, we'll export once per step value. Otherwise, export only using STEP.
 if [[ -n "${STEP_LIST:-}" ]]; then
